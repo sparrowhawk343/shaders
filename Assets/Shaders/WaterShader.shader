@@ -216,3 +216,9 @@ Shader "Unlit/WaterShader"
         }
     }
 }
+
+// TODO:
+// fix refraction artifacting
+// implement vertex displacing waves
+// clean up code
+// record walkthrough of project
