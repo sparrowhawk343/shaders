@@ -15,11 +15,7 @@ Shader "Unlit/WaterShader"
 
         _NormalTex1 ("Normal Map 1", 2D) = "bump" {}
         _NormalTex2 ("Normal Map 2", 2D) = "bump" {}
-
-        _WaveAmplitude ("Wave Amplitude", float) = 1.0
-
-        _RefractionSpeed ("Refraction Speed", float) = 1.0
-        _RefractionScale ("Refraction Scale", float) = 1.0
+        
         _RefractionStrength ("Refraction Strength", Range(0, 0.1)) = 1.0
         _RefractionVelocity ("Refraction Velocity", Vector) = (1,1,1,1)
         _EdgeThreshold ("Edge Threshold", float) = 1.0
@@ -49,7 +45,6 @@ Shader "Unlit/WaterShader"
             #pragma multi_compile_fwdbase nolightmap nodirlightmap nodynlightmap novertexlight
             #include "UnityCG.cginc"
             #include "SharedFunctions.cginc"
-            #define TAU 6.283185307179586
 
             struct MeshData
             {
@@ -71,8 +66,7 @@ Shader "Unlit/WaterShader"
             };
 
             sampler2D _NoiseTex;
-            // if I want a texture I guess enable this
-            // float4 _MainTex_ST;
+
             float4 _ShallowColor;
             float4 _DeepColor;
 
@@ -86,10 +80,7 @@ Shader "Unlit/WaterShader"
 
             sampler2D _NormalTex1;
             sampler2D _NormalTex2;
-
-            float _WaveAmplitude;
-            float _RefractionSpeed;
-            float _RefractionScale;
+            
             float _RefractionStrength;
             float2 _RefractionVelocity;
             float _EdgeThreshold;
@@ -98,10 +89,7 @@ Shader "Unlit/WaterShader"
             Interpolators vert(MeshData v)
             {
                 Interpolators i;
-
-                // if I want a texture I guess enable this
-                // o.uv = TRANSFORM_TEX(v.uv, _MainTex);
-
+                
                 i.vertex = UnityObjectToClipPos(v.vertex);
                 i.uv0 = v.uv0; // world space
                 i.worldNormal = UnityObjectToWorldNormal(v.normal);
@@ -114,20 +102,12 @@ Shader "Unlit/WaterShader"
                 i.screenPos = ComputeScreenPos(i.vertex);
                 COMPUTE_EYEDEPTH(i.screenPos.z);
 
-                // float NormalWave1 = cos((v.uv0.y - _Time.y * 0.1) * TAU * 5);
-                // float NormalWave2 = cos((v.uv0.x - _Time.y * 0.1) * TAU * 5);
-                //
-                // v.vertex.y = NormalWave1 * NormalWave2 * _WaveAmplitude;
-
                 return i;
             }
 
             fixed4 frag(Interpolators i) : SV_Target
             {
-                // sample the texture
-                // fixed4 col = tex2D(_MainTex, i.uv);
-
-
+                
                 // refraction
                 float2 RefractionNormals = i.uv0 + _Time.y * _RefractionVelocity;
                 float3 TangentSpaceNormal = UnpackNormal(tex2D(_NormalTex1, RefractionNormals));
@@ -153,37 +133,25 @@ Shader "Unlit/WaterShader"
                 // apply the refraction offset
                 DepthCoordinate.xy += RefractionOffset;
                 float BackgroundDepth = LinearEyeDepth(SAMPLE_DEPTH_TEXTURE_PROJ(_CameraDepthTexture, DepthCoordinate));
-
                 // surface depth, to exclude things above surface from refraction
                 float SurfaceDepth = UNITY_Z_0_FAR_FROM_CLIPSPACE(i.screenPos.z);
 
                 float DepthDifference = BackgroundDepth - SurfaceDepth;
-                if (DepthDifference < 0)
+                
+
+                // only refract if things are above water surface
+                // change this magic number to be a threshold tweakable in-editor
+                if (DepthDifference < 10)
                 {
                     // prevent artifacts here
+                    BackgroundDepth = LinearEyeDepth(SAMPLE_DEPTH_TEXTURE_PROJ(_CameraDepthTexture, UNITY_PROJ_COORD(i.screenPos)));
                 }
-
+                
                 float Depth = BackgroundDepth - i.screenPos.z;
                 fixed DepthFade = saturate((abs(pow(Depth, _DepthPow))) / _DepthFactor);
 
                 fixed4 DepthColor = lerp(ShallowColor, DeepColor, DepthFade);
-
-                // refraction
-                // float4 Refraction = i.screenPos + unity_gradientNoise(i.screenPos);
-                // float3 RefractVector = refract(i.uv0, -i.screenPos, 1.000293/1.333).xyz;
-                // float3 RefractVector = refract(i.screenPos, -i.worldNormal, AIR_TO_WATER_IOR).xyz;
-                // RefractVector = -RefractVector.xzy;
-                // RefractVector.z = -RefractVector.z;
-
-                // float4 RefractedColor = tex2D(_NormalTex1, RefractVector);
-                // use normal maps
-
-                // float4 SceneColor = tex2Dproj(_CameraOpaqueTexture, i.screenPos);
-                // DepthColor += i.screenPos + MoveTexture(i.uv0, _RefractionSpeed, _RefractionScale);
-
-
-                // return (half4(ViewSpaceNormal.xy, 0, 1));
-                // return tex2D(_NormalTex1, i.uv0);
+                
 
                 // fog based on depth (reuse from FogShader)
                 float CameraDistance = distance(i.worldPos, _WorldSpaceCameraPos);
@@ -202,6 +170,7 @@ Shader "Unlit/WaterShader"
                 float Frequency = 2.6;
                 float Noise = tex2D(_NoiseTex, i.uv0 / _NoiseStrength);
                 float FoamWaveSpeed = 0.2;
+                
                 // this is W(x)
                 float FoamWave = cos(Frequency * (ClampedDepth - (_Time.y + Noise * 10) * FoamWaveSpeed) * TAU) * 0.5 +
                     0.5;
@@ -218,7 +187,9 @@ Shader "Unlit/WaterShader"
 }
 
 // TODO:
-// fix refraction artifacting
+// ask Freya about subsurface artifacts
+// expose depth check threshold
 // implement vertex displacing waves
 // clean up code
+// make checkboxes for features for easy presentation
 // record walkthrough of project
