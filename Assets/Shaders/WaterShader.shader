@@ -15,7 +15,7 @@ Shader "Unlit/WaterShader"
 
         _NormalTex1 ("Normal Map 1", 2D) = "bump" {}
         _NormalTex2 ("Normal Map 2", 2D) = "bump" {}
-        
+
         _RefractionStrength ("Refraction Strength", Range(0, 0.1)) = 1.0
         _RefractionVelocity ("Refraction Velocity", Vector) = (1,1,1,1)
         _EdgeThreshold ("Edge Threshold", float) = 1.0
@@ -80,7 +80,7 @@ Shader "Unlit/WaterShader"
 
             sampler2D _NormalTex1;
             sampler2D _NormalTex2;
-            
+
             float _RefractionStrength;
             float2 _RefractionVelocity;
             float _EdgeThreshold;
@@ -89,7 +89,7 @@ Shader "Unlit/WaterShader"
             Interpolators vert(MeshData v)
             {
                 Interpolators i;
-                
+
                 i.vertex = UnityObjectToClipPos(v.vertex);
                 i.uv0 = v.uv0; // world space
                 i.worldNormal = UnityObjectToWorldNormal(v.normal);
@@ -107,7 +107,6 @@ Shader "Unlit/WaterShader"
 
             fixed4 frag(Interpolators i) : SV_Target
             {
-                
                 // refraction
                 float2 RefractionNormals = i.uv0 + _Time.y * _RefractionVelocity;
                 float3 TangentSpaceNormal = UnpackNormal(tex2D(_NormalTex1, RefractionNormals));
@@ -130,28 +129,33 @@ Shader "Unlit/WaterShader"
 
                 float4 DepthCoordinate = UNITY_PROJ_COORD(i.screenPos);
 
+                // surface depth, to exclude things above surface from refraction
+                float3 viewPos = mul(UNITY_MATRIX_V, float4(i.worldPos.xyz, 1));
+                
+                // negate this because it turned out the camera "forward" vector was pointing backwards
+                float SurfaceDepth = -viewPos.z;
+                
                 // apply the refraction offset
                 DepthCoordinate.xy += RefractionOffset;
                 float BackgroundDepth = LinearEyeDepth(SAMPLE_DEPTH_TEXTURE_PROJ(_CameraDepthTexture, DepthCoordinate));
-                // surface depth, to exclude things above surface from refraction
-                float SurfaceDepth = UNITY_Z_0_FAR_FROM_CLIPSPACE(i.screenPos.z);
 
                 float DepthDifference = BackgroundDepth - SurfaceDepth;
-                
+
 
                 // only refract if things are above water surface
-                // change this magic number to be a threshold tweakable in-editor
-                if (DepthDifference < 10)
+                if (DepthDifference < 0)
                 {
                     // prevent artifacts here
-                    BackgroundDepth = LinearEyeDepth(SAMPLE_DEPTH_TEXTURE_PROJ(_CameraDepthTexture, UNITY_PROJ_COORD(i.screenPos)));
+                    BackgroundDepth = LinearEyeDepth(
+                        SAMPLE_DEPTH_TEXTURE_PROJ(_CameraDepthTexture, UNITY_PROJ_COORD(i.screenPos)));
                 }
-                
+
+
                 float Depth = BackgroundDepth - i.screenPos.z;
                 fixed DepthFade = saturate((abs(pow(Depth, _DepthPow))) / _DepthFactor);
 
                 fixed4 DepthColor = lerp(ShallowColor, DeepColor, DepthFade);
-                
+
 
                 // fog based on depth (reuse from FogShader)
                 float CameraDistance = distance(i.worldPos, _WorldSpaceCameraPos);
@@ -170,7 +174,7 @@ Shader "Unlit/WaterShader"
                 float Frequency = 2.6;
                 float Noise = tex2D(_NoiseTex, i.uv0 / _NoiseStrength);
                 float FoamWaveSpeed = 0.2;
-                
+
                 // this is W(x)
                 float FoamWave = cos(Frequency * (ClampedDepth - (_Time.y + Noise * 10) * FoamWaveSpeed) * TAU) * 0.5 +
                     0.5;
