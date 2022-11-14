@@ -4,7 +4,6 @@ Shader "Unlit/WaterShader"
     {
         _NoiseTex ("Noise Texture", 2D) = "white" {}
         _ShallowColor ("Shallow Color", Color) = (1,1,1,1)
-
         _DeepColor ("Deep Color", Color) = (0,0,0,1)
 
         _DepthFactor("Depth Factor", float) = 1.0
@@ -20,6 +19,13 @@ Shader "Unlit/WaterShader"
         _RefractionVelocity ("Refraction Velocity", Vector) = (1,1,1,1)
         _EdgeThreshold ("Edge Threshold", float) = 1.0
         _NoiseStrength ("Noise Strength", float) = 1.0
+        
+        _Gravity ("Gravity", float) = 9.8
+        _Direction ("Wave Direction", Vector) = (1,0,0,0)
+        
+        _WaveA ("Wave A (xy = dir, z = steepness, w = length)", Vector) = (1, 0, 0.5, 0.24)
+        _WaveB ("Wave B (xy = dir, z = steepness, w = length)", Vector) = (0, 1, 0.25, 0.4)
+        _WaveC ("Wave B (xy = dir, z = steepness, w = length)", Vector) = (0, 2, 0.1, 0.3)
     }
     SubShader
     {
@@ -42,7 +48,7 @@ Shader "Unlit/WaterShader"
             CGPROGRAM
             #pragma vertex vert
             #pragma fragment frag
-            #pragma multi_compile_fwdbase nolightmap nodirlightmap nodynlightmap novertexlight
+            #pragma multi_compile_fwdbase nolightmap nodirlightmap nodynlightmap novertexlight fullforwardshadows addshadow
             #include "UnityCG.cginc"
             #include "SharedFunctions.cginc"
 
@@ -86,11 +92,31 @@ Shader "Unlit/WaterShader"
             float _EdgeThreshold;
             float _NoiseStrength;
 
+            float _Gravity;
+            float2 _Direction;
+            float4 _WaveA, _WaveB, _WaveC;
+
             Interpolators vert(MeshData v)
             {
                 Interpolators i;
 
+                //waves, start with a point on the grid and accumulate Gerstner waves
+                float3 gridPoint = v.vertex.xyz;
+                float3 tangent = float3(1, 0, 0);
+                float3 binormal = float3(0, 0, 1);
+                float3 p = gridPoint;
+                p += GerstnerWave(_WaveA, gridPoint, _Gravity, tangent, binormal);
+                p += GerstnerWave(_WaveB, gridPoint, _Gravity, tangent, binormal);
+                p += GerstnerWave(_WaveC, gridPoint, _Gravity, tangent, binormal);
+
+                float3 normal = normalize(cross(binormal, tangent));
+
+                v.vertex.xyz = p;
+                v.normal = normal;
+
+
                 i.vertex = UnityObjectToClipPos(v.vertex);
+
                 i.uv0 = v.uv0; // world space
                 i.worldNormal = UnityObjectToWorldNormal(v.normal);
 
@@ -101,6 +127,7 @@ Shader "Unlit/WaterShader"
 
                 i.screenPos = ComputeScreenPos(i.vertex);
                 COMPUTE_EYEDEPTH(i.screenPos.z);
+
 
                 return i;
             }
@@ -131,10 +158,10 @@ Shader "Unlit/WaterShader"
 
                 // surface depth, to exclude things above surface from refraction
                 float3 viewPos = mul(UNITY_MATRIX_V, float4(i.worldPos.xyz, 1));
-                
+
                 // negate this because it turned out the camera "forward" vector was pointing backwards
                 float SurfaceDepth = -viewPos.z;
-                
+
                 // apply the refraction offset
                 DepthCoordinate.xy += RefractionOffset;
                 float BackgroundDepth = LinearEyeDepth(SAMPLE_DEPTH_TEXTURE_PROJ(_CameraDepthTexture, DepthCoordinate));
@@ -165,10 +192,8 @@ Shader "Unlit/WaterShader"
                 float t = saturate(CameraDistance * _FogIntensity);
                 float FogColor = lerp(_ShallowColor, _DeepColor, t);
 
-                // define foam gradient (0-1 from edge)
-                // find edge based on depth, if depth is 0-0.2, that is edge
-                // project foam noise texture kinda like normals rn
 
+                // foam
                 float EdgeDepth = InvLerp(0, _EdgeThreshold, Depth);
                 float ClampedDepth = saturate(EdgeDepth);
                 float Frequency = 2.6;

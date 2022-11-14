@@ -82,6 +82,7 @@ Material:
     - _GlossMapScale: 1
     - _Glossiness: 0.5
     - _GlossyReflections: 1
+    - _Gravity: 0.37
     - _Metallic: 0
     - _Mode: 0
     - _MovementSpeed: 1
@@ -96,8 +97,11 @@ Material:
     - _SrcBlend: 1
     - _TransparencyFactor: 0.64
     - _UVSec: 0
-    - _WaveAmplitude: 1
+    - _WaveAmplitude: 0.08
+    - _WaveSpeed: 0.48
+    - _WaveSteepness: 0.52
     - _WaveStrength: 0.13
+    - _Wavelength: 0.24
     - _ZWrite: 1
     m_Colors:
     - _Color: {r: 1, g: 1, b: 1, a: 1}
@@ -105,7 +109,11 @@ Material:
     - _ColorB: {r: 0.18605375, g: 0.2239747, b: 0.3490566, a: 1}
     - _DeepColor: {r: 0.042052332, g: 0.042052332, b: 0.4245283, a: 1}
     - _DepthTexture: {r: 0, g: 0, b: 0, a: 1}
+    - _Direction: {r: 1, g: 1, b: 0, a: 0}
     - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}
     - _RefractionVelocity: {r: 0.02, g: 0.02, b: 1, a: 1}
     - _ShallowColor: {r: 0.4764151, g: 0.86680734, b: 1, a: 1}
+    - _WaveA: {r: 1, g: 0, b: 0.5, a: 0.24}
+    - _WaveB: {r: 0, g: 1, b: 0.25, a: 0.4}
+    - _WaveC: {r: 1, g: 2, b: 0.1, a: 0.3}
   m_BuildTextureStacks: []

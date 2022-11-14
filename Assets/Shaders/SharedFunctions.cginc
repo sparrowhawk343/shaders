@@ -19,7 +19,6 @@ float3 InvLerp3( float3 a, float3 b, float3 v )
     return (v-a)/(b-a);
 }
 
-
 float Lambert( float3 N, float3 L )
 {
     return saturate(dot(N,L));
@@ -48,43 +47,39 @@ float3 ApplyLighting( float3 surfColor, float3 N, float3 wPos, float gloss )
     return surfColor*diffuse + specular;
 }
 
-float2 MoveTexture(float2 UV, float Speed, float Scale)
-{
-    float Offset = _Time.y * Speed;
-
-    return UV * Scale + Offset;
-}
-
-
 float3 WorldToViewDir( in float3 vec )
 {
     return mul((float3x3)UNITY_MATRIX_V, vec).xyz;
 }
 
-
-// functions for generating gradient noise for water refraction
-float2 unity_gradientNoise_dir(float2 p)
+float3 GerstnerWave( float4 wave, float3 gridPoint, float gravity, inout float3 tangent, inout float3 binormal)
 {
-    p = p % 289;
-    float x = (34 * p.x + 1) * p.x % 289 + p.y;
-    x = (34 * x + 1) * x % 289;
-    x = frac(x / 41) * 2 - 1;
-    return normalize(float2(x - floor(x + 0.5), abs(x) - 0.5));
-}
+    float steepness = wave.z;
+    float wavelength = wave.w;
+    
+    float k = TAU / wavelength;
 
-float unity_gradientNoise(float2 p)
-{
-    float2 ip = floor(p);
-    float2 fp = frac(p);
-    float d00 = dot(unity_gradientNoise_dir(ip), fp);
-    float d01 = dot(unity_gradientNoise_dir(ip + float2(0, 1)), fp - float2(0, 1));
-    float d10 = dot(unity_gradientNoise_dir(ip + float2(1, 0)), fp - float2(1, 0));
-    float d11 = dot(unity_gradientNoise_dir(ip + float2(1, 1)), fp - float2(1, 1));
-    fp = fp * fp * fp * (fp * (fp * 6 - 15) + 10);
-    return lerp(lerp(d00, d01, fp.y), lerp(d10, d11, fp.y), fp.x);
-}
+    // c for phase speed based on gravity and number of waves
+    // lower gravity = slower waves
+    float c = sqrt(gravity / k);
+    float2 d = normalize(wave.xy);
+    float f = k * (dot(d, gridPoint.xz) - c * _Time.y);
+    float a = steepness / k;
 
-void Unity_GradientNoise_float(float2 UV, float Scale, out float Out)
-{
-    Out = unity_gradientNoise(UV * Scale) + 0.5;
+    // correcting normal vectors
+    tangent += float3(
+        -d.x * d.x * (steepness * sin(f)),
+        d.x * (steepness * cos(f)),
+        -d.x * d.y * (steepness * sin(f)));
+
+    binormal += float3(
+        -d.x * d.y * (steepness * sin(f)),
+        d.y * (steepness * cos(f)),
+        1 - d.y * d.y * (steepness * sin(f)));
+
+    return float3(
+        d.x * (a * cos(f)),
+        a * sin(f),
+        d.y * (a * cos(f))
+        );
 }
