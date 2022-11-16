@@ -8,11 +8,6 @@ Shader "Unlit/MossRockShader"
         _MainTex ("Main color texture", 2D) = "black" {}
         _HeightMap ("Height", 2D) = "black" {}
         _MossTex ("Moss texture", 2D) = "black" {}
-
-        _WaveHeight("Wave height", Float) = 1
-        _WaveLength("Wave length", Float) = 1
-        _WaveSpeed("Wave speed", Float) = 1
-        _MossHeight("Moss Height", Float) = 1
         _BlendIntensity("Blend Intensity", Float) = 1
         
     }
@@ -53,16 +48,12 @@ Shader "Unlit/MossRockShader"
             sampler2D _MainTex;
             sampler2D _HeightMap;
             sampler2D _MossTex;
-            float _WaveHeight;
-            float _WaveLength;
-            float _WaveSpeed;
-            float _MossHeight;
             float _BlendIntensity; 
 
             Interpolators vert ( MeshData v ) {
                 Interpolators i;
                 
-                float height = tex2Dlod( _HeightMap, float4(v.uv0,0,0) ) * _WaveHeight;
+                float height = tex2Dlod( _HeightMap, float4(v.uv0,0,0));
                 v.vertex += v.normal * height;
                 
                 i.vertex = UnityObjectToClipPos(v.vertex);
