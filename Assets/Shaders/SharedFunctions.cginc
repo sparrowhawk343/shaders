@@ -2,10 +2,8 @@
 #include <UnityCG.cginc>
 
 #include "UnityLightingCommon.cginc"
-#include "AutoLight.cginc"
 
-// v =  lerp(a,b,t)
-// t = ilerp(a,b,v)
+
 float InvLerp(float a, float b, float v)
 {
     return (v - a) / (b - a);

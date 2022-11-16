@@ -128,9 +128,8 @@ Shader "Unlit/WaterShader"
                 i.worldNormal = UnityObjectToWorldNormal(v.normal);
 
                 i.tangent = UnityObjectToWorldDir(tangent);
-                // i.bitangent = cross(i.worldNormal, i.tangent) * (v.tangent.w * unity_WorldTransformParams.w);
                 i.bitangent = UnityObjectToWorldDir(bitangent);
-                i.worldPos = mul(UNITY_MATRIX_M, float4(v.vertex.xyz, 1)); // world space
+                i.worldPos = mul(UNITY_MATRIX_M, float4(v.vertex.xyz, 1));
 
                 i.screenPos = ComputeScreenPos(i.vertex);
                 i.grabPos = ComputeGrabScreenPos(i.vertex);
@@ -155,7 +154,6 @@ Shader "Unlit/WaterShader"
                 };
 
                 float3 WorldSpaceNormal = mul(MtxTangentToWorld, TangentSpaceNormal);
-
                 float3 ViewSpaceNormal = WorldToViewDir(WorldSpaceNormal);
                 float2 RefractionOffset = ViewSpaceNormal.xy * _RefractionStrength;
 
@@ -165,8 +163,6 @@ Shader "Unlit/WaterShader"
                 fixed4 DeepColor = _DeepColor;
 
                 float4 DepthCoordinate = UNITY_PROJ_COORD(i.screenPos);
-
-                // surface depth, to exclude things above surface from refraction
                 float3 viewPos = mul(UNITY_MATRIX_V, float4(i.worldPos.xyz, 1));
 
                 // negate this because it turned out the camera "forward" vector was pointing backwards
@@ -176,10 +172,8 @@ Shader "Unlit/WaterShader"
                 DepthCoordinate.xy += RefractionOffset;
                 float BackgroundDepth = LinearEyeDepth(SAMPLE_DEPTH_TEXTURE_PROJ(_CameraDepthTexture, DepthCoordinate));
 
-                float DepthDifference = BackgroundDepth - SurfaceDepth;
-
-
                 // only refract if things are above water surface
+                float DepthDifference = BackgroundDepth - SurfaceDepth;
                 if (DepthDifference < 0)
                 {
                     // prevent artifacts here
@@ -187,12 +181,10 @@ Shader "Unlit/WaterShader"
                         SAMPLE_DEPTH_TEXTURE_PROJ(_CameraDepthTexture, UNITY_PROJ_COORD(i.screenPos)));
                 }
 
-
+                // fade based on depth
                 float Depth = BackgroundDepth - i.screenPos.z;
                 fixed DepthFade = saturate((abs(pow(Depth, _DepthPow))) / _DepthFactor);
-
                 fixed4 DepthColor = lerp(ShallowColor, DeepColor, DepthFade);
-
 
                 // fog based on depth (reuse from FogShader)
                 float CameraDistance = distance(i.worldPos, _WorldSpaceCameraPos);
@@ -201,7 +193,6 @@ Shader "Unlit/WaterShader"
 
                 float t = saturate(CameraDistance * _FogIntensity);
                 float3 FogColor = lerp(_ShallowColor, _DeepColor, t);
-
 
                 // foam
                 float EdgeDepth = InvLerp(0, _EdgeThreshold, Depth);
@@ -218,30 +209,24 @@ Shader "Unlit/WaterShader"
                 float4 SceneColor = tex2Dproj(_SceneColorPass, i.grabPos);
                 
                 // transparency
-                // DepthColor.a = lerp(DepthColor.a, SceneColor.a, _Opacity * (1 - DepthFade));
                 DepthColor.xyz = InvLerp3(_ShallowColor.xyz, _DeepColor.xyz, DepthFade);
                 // R(x) is 1-x (1 - ClampedDepth), hence W(x) * R(x)
 
                 
                 // specular lighting
-                float3 V = normalize(_WorldSpaceCameraPos - i.worldPos); // direction to camera (view vector)
+                // direction to camera (view vector)
+                float3 V = normalize(_WorldSpaceCameraPos - i.worldPos);
                 float specExp = exp2(1 + _SpecGloss * 12);
                 float3 L = UnityWorldSpaceLightDir(i.worldPos);
                 float specular = BlinnPhong(i.worldNormal, L, V, specExp) * _LightColor0;
                 
                 
-                
+                // more transparency & return value
                 float opacity = DepthColor.a * _Opacity;
                 float3 BelowSurfaceColor = lerp((DepthColor.rgb + FogColor), SceneColor, _Opacity);
                 return float4(BelowSurfaceColor + (1 - ClampedDepth) * FoamWave + specular, 1);
-                // return (DepthColor + FogColor) + (1 - ClampedDepth) * FoamWave;
             }
             ENDCG
         }
     }
 }
-
-// TODO:
-// clean up code
-// make checkboxes for features for easy presentation (?)
-// record walkthrough of project
