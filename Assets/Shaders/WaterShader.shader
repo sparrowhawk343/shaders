@@ -222,7 +222,6 @@ Shader "Unlit/WaterShader"
                 
                 
                 // more transparency & return value
-                float opacity = DepthColor.a * _Opacity;
                 float3 BelowSurfaceColor = lerp((DepthColor.rgb + FogColor), SceneColor, _Opacity);
                 return float4(BelowSurfaceColor + (1 - ClampedDepth) * FoamWave + specular, 1);
             }
