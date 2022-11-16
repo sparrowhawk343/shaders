@@ -7,8 +7,8 @@ Material:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: WaterMaterial
-  m_Shader: {fileID: 4800000, guid: 70bda5cba97bd7845853f083e8b5000e, type: 3}
+  m_Name: TestMaterial
+  m_Shader: {fileID: 46, guid: 0000000000000000f000000000000000, type: 0}
   m_ShaderKeywords: 
   m_LightmapFlags: 4
   m_EnableInstancingVariants: 0
@@ -47,18 +47,6 @@ Material:
         m_Texture: {fileID: 0}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
-    - _NoiseTex:
-        m_Texture: {fileID: 2800000, guid: b53721278a73232458ab422489dd033c, type: 3}
-        m_Scale: {x: 1, y: 1}
-        m_Offset: {x: 0, y: 0}
-    - _NormalTex1:
-        m_Texture: {fileID: 2800000, guid: 25b66a7bbd923e74185626c9b71a34b5, type: 3}
-        m_Scale: {x: 1, y: 1}
-        m_Offset: {x: 0, y: 0}
-    - _NormalTex2:
-        m_Texture: {fileID: 2800000, guid: 913e092389d212d4b8e956be11bed613, type: 3}
-        m_Scale: {x: 1, y: 1}
-        m_Offset: {x: 0, y: 0}
     - _OcclusionMap:
         m_Texture: {fileID: 0}
         m_Scale: {x: 1, y: 1}
@@ -68,54 +56,23 @@ Material:
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     m_Floats:
-    - _BlendIntensity: 0.07
     - _BumpScale: 1
     - _Cutoff: 0.5
-    - _DepthDistance: 8.34
-    - _DepthFactor: 2
-    - _DepthPow: 0.37
     - _DetailNormalMapScale: 1
     - _DstBlend: 0
-    - _EdgeThreshold: 0.83
-    - _FogFadeRange: 0.35
-    - _FogIntensity: 0.1
     - _GlossMapScale: 1
     - _Glossiness: 0.5
     - _GlossyReflections: 1
-    - _Gravity: 0.37
     - _Metallic: 0
     - _Mode: 0
-    - _MovementSpeed: 1
-    - _NoiseStrength: 0.8
     - _OcclusionStrength: 1
-    - _Opacity: 0.336
     - _Parallax: 0.02
-    - _RefractionScale: 1
-    - _RefractionSpeed: 1
-    - _RefractionStrength: 0.0594
     - _SmoothnessTextureChannel: 0
-    - _SpecGloss: 0.943
     - _SpecularHighlights: 1
     - _SrcBlend: 1
-    - _TransparencyFactor: 0.64
     - _UVSec: 0
-    - _WaveAmplitude: 0.08
-    - _WaveSpeed: 0.48
-    - _WaveSteepness: 0.52
-    - _WaveStrength: 0.13
-    - _Wavelength: 0.24
     - _ZWrite: 1
     m_Colors:
-    - _Color: {r: 1, g: 1, b: 1, a: 1}
-    - _ColorA: {r: 0, g: 0.71173203, b: 0.9245283, a: 1}
-    - _ColorB: {r: 0.18605375, g: 0.2239747, b: 0.3490566, a: 1}
-    - _DeepColor: {r: 0.042052332, g: 0.042052332, b: 0.4245283, a: 1}
-    - _DepthTexture: {r: 0, g: 0, b: 0, a: 1}
-    - _Direction: {r: 1, g: 1, b: 0, a: 0}
+    - _Color: {r: 1, g: 0, b: 0, a: 1}
     - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}
-    - _RefractionVelocity: {r: 0.02, g: 0.02, b: 1, a: 1}
-    - _ShallowColor: {r: 0.4764151, g: 0.86680734, b: 1, a: 1}
-    - _WaveA: {r: 1, g: 0, b: 0.35, a: 0.1}
-    - _WaveB: {r: 1, g: 0.6, b: 0.25, a: 0.31}
-    - _WaveC: {r: 1, g: 3, b: 0.25, a: 0.5}
   m_BuildTextureStacks: []

@@ -13,19 +13,20 @@ Shader "Unlit/WaterShader"
         _FogIntensity("Blend Intensity", Float) = 0.1
 
         _NormalTex1 ("Normal Map 1", 2D) = "bump" {}
-        _NormalTex2 ("Normal Map 2", 2D) = "bump" {}
 
         _RefractionStrength ("Refraction Strength", Range(0, 0.1)) = 1.0
         _RefractionVelocity ("Refraction Velocity", Vector) = (1,1,1,1)
         _EdgeThreshold ("Edge Threshold", float) = 1.0
         _NoiseStrength ("Noise Strength", float) = 1.0
-        
+
         _Gravity ("Gravity", float) = 9.8
-        _Direction ("Wave Direction", Vector) = (1,0,0,0)
-        
+
         _WaveA ("Wave A (xy = dir, z = steepness, w = length)", Vector) = (1, 0, 0.5, 0.24)
         _WaveB ("Wave B (xy = dir, z = steepness, w = length)", Vector) = (0, 1, 0.25, 0.4)
         _WaveC ("Wave B (xy = dir, z = steepness, w = length)", Vector) = (0, 2, 0.1, 0.3)
+        
+        _SpecGloss ("Specular Glossiness", Range(0, 1)) = 1.0
+        _Opacity ("Opacity value for transparency", Range(0, 1)) = 1.0
     }
     SubShader
     {
@@ -37,9 +38,12 @@ Shader "Unlit/WaterShader"
         }
         Blend SrcAlpha OneMinusSrcAlpha
         LOD 100
-
+        
+        GrabPass  {"_SceneColorPass"}
+        
         Pass
         {
+            
             Tags
             {
                 "LightMode" = "ForwardBase"
@@ -48,10 +52,10 @@ Shader "Unlit/WaterShader"
             CGPROGRAM
             #pragma vertex vert
             #pragma fragment frag
-            #pragma multi_compile_fwdbase nolightmap nodirlightmap nodynlightmap novertexlight fullforwardshadows addshadow
+            #pragma multi_compile_fwdbase nolightmap nodirlightmap nodynlightmap novertexlight
             #include "UnityCG.cginc"
             #include "SharedFunctions.cginc"
-
+           
             struct MeshData
             {
                 float4 vertex : POSITION;
@@ -69,6 +73,7 @@ Shader "Unlit/WaterShader"
                 float3 worldNormal : TEXCOORD3;
                 float3 tangent : TEXCOORD4;
                 float3 bitangent : TEXCOORD5;
+                float4 grabPos : TEXCOORD6;
             };
 
             sampler2D _NoiseTex;
@@ -85,7 +90,6 @@ Shader "Unlit/WaterShader"
             float _FogIntensity;
 
             sampler2D _NormalTex1;
-            sampler2D _NormalTex2;
 
             float _RefractionStrength;
             float2 _RefractionVelocity;
@@ -95,6 +99,10 @@ Shader "Unlit/WaterShader"
             float _Gravity;
             float2 _Direction;
             float4 _WaveA, _WaveB, _WaveC;
+            float _SpecGloss;
+            float _Opacity;
+
+            sampler2D _SceneColorPass;
 
             Interpolators vert(MeshData v)
             {
@@ -103,37 +111,39 @@ Shader "Unlit/WaterShader"
                 //waves, start with a point on the grid and accumulate Gerstner waves
                 float3 gridPoint = v.vertex.xyz;
                 float3 tangent = float3(1, 0, 0);
-                float3 binormal = float3(0, 0, 1);
+                float3 bitangent = float3(0, 0, 1);
                 float3 p = gridPoint;
-                p += GerstnerWave(_WaveA, gridPoint, _Gravity, tangent, binormal);
-                p += GerstnerWave(_WaveB, gridPoint, _Gravity, tangent, binormal);
-                p += GerstnerWave(_WaveC, gridPoint, _Gravity, tangent, binormal);
+                p += GerstnerWave(_WaveA, gridPoint, _Gravity, tangent, bitangent);
+                p += GerstnerWave(_WaveB, gridPoint, _Gravity, tangent, bitangent);
+                p += GerstnerWave(_WaveC, gridPoint, _Gravity, tangent, bitangent);
 
-                float3 normal = normalize(cross(binormal, tangent));
+                float3 normal = normalize(cross(bitangent, tangent));
 
                 v.vertex.xyz = p;
                 v.normal = normal;
-
-
+                
                 i.vertex = UnityObjectToClipPos(v.vertex);
 
                 i.uv0 = v.uv0; // world space
                 i.worldNormal = UnityObjectToWorldNormal(v.normal);
 
-                i.tangent = UnityObjectToWorldDir(v.tangent.xyz);
-                i.bitangent = cross(i.worldNormal, i.tangent) * (v.tangent.w * unity_WorldTransformParams.w);
-
+                i.tangent = UnityObjectToWorldDir(tangent);
+                // i.bitangent = cross(i.worldNormal, i.tangent) * (v.tangent.w * unity_WorldTransformParams.w);
+                i.bitangent = UnityObjectToWorldDir(bitangent);
                 i.worldPos = mul(UNITY_MATRIX_M, float4(v.vertex.xyz, 1)); // world space
 
                 i.screenPos = ComputeScreenPos(i.vertex);
+                i.grabPos = ComputeGrabScreenPos(i.vertex);
                 COMPUTE_EYEDEPTH(i.screenPos.z);
-
-
+                
                 return i;
             }
 
             fixed4 frag(Interpolators i) : SV_Target
             {
+                // normalize world normals, this made them less steppy and more smooth
+                i.worldNormal = normalize(i.worldNormal);
+                
                 // refraction
                 float2 RefractionNormals = i.uv0 + _Time.y * _RefractionVelocity;
                 float3 TangentSpaceNormal = UnpackNormal(tex2D(_NormalTex1, RefractionNormals));
@@ -190,7 +200,7 @@ Shader "Unlit/WaterShader"
                 CameraDistance *= _FogFadeRange;
 
                 float t = saturate(CameraDistance * _FogIntensity);
-                float FogColor = lerp(_ShallowColor, _DeepColor, t);
+                float3 FogColor = lerp(_ShallowColor, _DeepColor, t);
 
 
                 // foam
@@ -204,11 +214,27 @@ Shader "Unlit/WaterShader"
                 float FoamWave = cos(Frequency * (ClampedDepth - (_Time.y + Noise * 10) * FoamWaveSpeed) * TAU) * 0.5 +
                     0.5;
 
+                i.grabPos.xy += RefractionOffset;
+                float4 SceneColor = tex2Dproj(_SceneColorPass, i.grabPos);
+                
                 // transparency
-                // DepthColor.a = lerp(DepthColor.a, SceneColor.a, _TransparencyFactor * (1 - DepthFade));
+                // DepthColor.a = lerp(DepthColor.a, SceneColor.a, _Opacity * (1 - DepthFade));
                 DepthColor.xyz = InvLerp3(_ShallowColor.xyz, _DeepColor.xyz, DepthFade);
                 // R(x) is 1-x (1 - ClampedDepth), hence W(x) * R(x)
-                return (DepthColor + FogColor) + (1 - ClampedDepth) * FoamWave;
+
+                
+                // specular lighting
+                float3 V = normalize(_WorldSpaceCameraPos - i.worldPos); // direction to camera (view vector)
+                float specExp = exp2(1 + _SpecGloss * 12);
+                float3 L = UnityWorldSpaceLightDir(i.worldPos);
+                float specular = BlinnPhong(i.worldNormal, L, V, specExp) * _LightColor0;
+                
+                
+                
+                float opacity = DepthColor.a * _Opacity;
+                float3 BelowSurfaceColor = lerp((DepthColor.rgb + FogColor), SceneColor, _Opacity);
+                return float4(BelowSurfaceColor + (1 - ClampedDepth) * FoamWave + specular, 1);
+                // return (DepthColor + FogColor) + (1 - ClampedDepth) * FoamWave;
             }
             ENDCG
         }
@@ -216,9 +242,6 @@ Shader "Unlit/WaterShader"
 }
 
 // TODO:
-// ask Freya about subsurface artifacts
-// expose depth check threshold
-// implement vertex displacing waves
 // clean up code
-// make checkboxes for features for easy presentation
+// make checkboxes for features for easy presentation (?)
 // record walkthrough of project
